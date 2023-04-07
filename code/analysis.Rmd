@@ -1,0 +1,119 @@
+---
+title: "ed_post_map"
+author: "Victoria Ifatusin"
+date: '2023-04-07'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Remember to Input Chat
+
+```{r}
+#loading libraries:
+library(tidyverse)
+library(sf)
+library(janitor)
+```
+
+```{r}
+# loading in our files. 
+us_school_districts <- read_csv("files/gao104606figure3.csv") %>% 
+  clean_names()
+# gives us 15,504 districts. There isn't a geometry column, might be in the shp file. 
+us_school_districts_regions <- read_sf("files/gao104606figure3_region.shp") %>% 
+  clean_names()
+# as predicted, it is in the shp file. However, there isn't any race demographics. So I'm going to go look for race demographics for each of these regions.
+# found it?
+race_per_student <- read_csv("files/ccd_lea_052_1718_l_1a_083118.csv") %>% 
+  clean_names()
+# gives us 3,750,671 rows of data. I'm going to group it by district to see how many districts there are.
+```
+
+```{r}
+# cleaning agency names under the lea_name and creating a new column. Also cleaning the states, but not going to create a new column.
+race_per_student <- race_per_student %>% 
+  mutate(cleaned_lea_name = str_to_title(lea_name)) %>% 
+  mutate(statename = str_to_title(statename))
+
+# the number of districts in this dataset. I'm also going to save this to a dataframe for later use.
+total_students <- race_per_student %>% 
+  group_by(statename, leaid, cleaned_lea_name) %>% 
+  summarise(total = n()) %>% 
+  arrange(desc(total))
+# Gave us 17,669 agencies. According to California's Commission on Teacher Credentialing, (https://www.ctc.ca.gov/credentials/certification-glossary/Local-Education-Agency-(LEA)#:~:text=An%20LEA%20is%20a%20local,local%20plan%20area%20(SELPA)), "an LEA is a local entity involved in education including but not limited to school districts, county offices of education, direct-funded charter schools, and special education local plan area (SELPA)." So this number makes sense. My only fear is that the names won't match, but we'll see. 
+
+# Now, let's group by state, leaid, district/name and race:
+race_per_student %>% 
+  group_by(statename, leaid, cleaned_lea_name, race_ethnicity) %>% 
+  summarise(total = n()) %>% 
+  arrange(desc(total)) %>% 
+  view()
+
+race_per_student %>% 
+  group_by(race_ethnicity) %>% 
+  summarise(total = n()) %>% 
+  arrange(desc(total)) %>% 
+  view()
+
+# We want all Black and Brown kids, which we identify as: American Indian or Alaska Native, Asian, Black or African American, Hispanic/Latino, Native Hawaiian or Other Pacific Islander, Two or more races (everything but white). So, I'm going to create a new column called black_brown, that will have yes or no values in it. If R recognizes the races we listed earlier, put yes. If it doesn't, but no. That's what I'm doing below.
+
+race_per_student <- race_per_student %>% 
+  mutate(black_brown = case_when(
+    str_detect(race_ethnicity, "American Indian or Alaska Native|Asian|Black or African American|Hispanic/Latino|Native Hawaiian or Other Pacific Islander|Two or more races") ~ "Yes",
+    str_detect(race_ethnicity, "White") ~ "White", 
+    str_detect(race_ethnicity, "Not Specified|No Category Codes") ~ "N/A",
+    TRUE ~ black_brown))
+# It worked!
+
+# Let's group by black_brown and see the numbers. Also cleaning the states, but not going to create a new column.
+part_students <- race_per_student %>% 
+  group_by(statename, leaid, cleaned_lea_name, black_brown) %>% 
+  summarise(part = n()) %>% 
+  arrange(desc(part))
+# It's a little weird how similar the numbers are... across different agencies. This might need to be fact-checked. 
+
+# We want to have three categories: districts that received a grant and have less than 50% of black and brown students, districts that received a grant and have more then 50% of black and brown students and districts that did not receive a grant (but it'll most likely still show racial demographics). So we'll need to do some calculations. We want to get a column that gives the total amount of students for each US school district and another column that calculates the percentage. 
+
+race_per_student <- race_per_student %>% 
+  left_join(total_students, by=c("statename", "leaid", "cleaned_lea_name"))
+# we've successfully joined the totals together.  
+
+# Now the part (black_brown) 
+race_per_student <- race_per_student %>% 
+  left_join(part_students, by=c("statename", "leaid", "cleaned_lea_name", "black_brown"))
+# we've successfully joined the parts together.  
+
+# Now we can do the percentage.
+race_per_student <- race_per_student %>% 
+  mutate(percentage = (part/total)*100)
+
+#### Looking at GAO data.
+
+# cleaning the names:
+us_school_districts_regions <- us_school_districts_regions %>% 
+  mutate(cleaned_name = str_to_title(name))
+
+# From here, I think we can proceed with inner joining the data from GAO. 
+race_per_student <- race_per_student %>% 
+  inner_join(us_school_districts_regions, by=c("cleaned_lea_name" = "cleaned_name"))
+# it worked. I want to anti-join to see what didn't make it.
+
+us_school_districts_regions %>% 
+  anti_join(race_per_student, by=c("cleaned_name" = "cleaned_lea_name")) %>% 
+  view()
+# So... it didn't match with 10,811 districts. That leaves only less than 5,000 districts, which isn't good. Especially because the once they didn't match with, some of them do have grant data. 
+
+# Let's see how many districts it did matched with, because it didn't match with 2,517,467 entries. 
+race_per_student %>% 
+  group_by(name) %>% 
+  summarise(total = n()) %>% 
+  view()
+# It matched with 3,678 districts. 
+
+# So here's the plan for tomorrow: one, reach out to the folks at GAO and ask for racial data. Two, still create a map showing just the us_school_districts. Finally, explain all of this to Maureen and Anya. 
+
+```
+
