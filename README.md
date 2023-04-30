@@ -1,2 +1,7 @@
 # ed-post-map
  All the materials used to create a map showing grant and air pollution data in the US, underneath racial demographics data.
+ Studies from the Government Accountability Office (GAO) and the University of Utah have shown that school districts that have received a grant from the government for a natural disaster are in counties or areas where high air pollution and high noise pollution exists. We wanted to create a similar map, and show the school districts that received a grant next to a map of counties that have higher rates of air pollution that can have neurological affects. 
+
+For this, I reached out to the GAO to ask for a spreadsheet containing all the school districts that have received a grant. Their spreadsheet unfortunately doesn't list all school districts, as I noticed that after mapping it, there was a lot of white space. So I had to also grab all the shape files from the Department of Education's National Center for Education Statistics in order to join the two dataframes by the geoids. I got air pollution data from the Environmental Protection Agency, which had the data available by census tract. Thankfully, their data includes the county information, so I added the hazard quotient for each census tract in each county to give each county one total hazard quotient value. 
+
+Since we are simply re-creating the maps that the GAO and University of Utah made, I mainly used 2018 data from all sources, since that was what the GAO and University of Utah used.
