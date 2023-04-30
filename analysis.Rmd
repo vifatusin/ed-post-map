@@ -1,0 +1,117 @@
+---
+title: "ed_post_map"
+author: "Victoria Ifatusin"
+date: '2023-04-07'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Creating Maps for Ed Post
+
+```{r}
+#turning off scientific notation
+options(scipen=900)
+
+# installing package we may not have before
+install.packages("geojsonio")
+
+#loading libraries:
+library(tidyverse)
+library(sf)
+library(janitor)
+library(tidycensus)
+library(tigris)
+library(tidyr)
+library(purrr)
+library(geojsonio)
+
+options(tigris_use_cache = TRUE)
+```
+
+# Air Pollution by County
+
+```{r}
+# loading in the data
+neur_air_hi_us_2018 <- read_csv("files/air_pollution/2018_National_NeurHI_by_tract_srcgrp.csv") %>% 
+  clean_names()
+
+# selecting the specific columns we need and saving it to a new dataset 
+neur_air_hi_us_2018_by_county <- neur_air_hi_us_2018 %>%
+  select(state, county, fips, total_neurological_hazard_quotient)
+
+# removing the first row because it's just data for the entire country.
+neur_air_hi_us_2018_by_county <- neur_air_hi_us_2018_by_county[-1,]
+
+# we're also going to remove anything that says "Entire State," because those aren't useful to us.
+neur_air_hi_us_2018_by_county <- neur_air_hi_us_2018_by_county %>% 
+  filter(!(county == "Entire State"))
+
+# adding the total column for each county.
+neur_air_hi_us_2018_by_county <- neur_air_hi_us_2018_by_county %>% 
+  group_by(state, county, fips) %>% 
+  summarise(total_neur_hazard_quotient = sum(total_neurological_hazard_quotient))
+
+# calculating percentiles, to see which counties are in the 75th and 90th percentiles of having the highest air pollution, as University of Utah did it. 
+pct90 <- quantile(neur_air_hi_us_2018_by_county$total_neur_hazard_quotient, 0.9)
+pct75 <- quantile(neur_air_hi_us_2018_by_county$total_neur_hazard_quotient, 0.75)
+
+# assigning each county a percentile, either 90th, 75th or lower. 
+my_data_category <- ifelse(neur_air_hi_us_2018_by_county$total_neur_hazard_quotient >= pct90, "90th Percentile",
+                           ifelse(neur_air_hi_us_2018_by_county$total_neur_hazard_quotient >= pct75, "75th Percentile", "Lower Percentile"))
+
+# saving my_data_category to a dataset
+percentile <- data.frame(percentile = my_data_category)
+
+# putting it together to our original dataset.
+neur_air_hi_us_2018_by_county <- cbind(neur_air_hi_us_2018_by_county, percentile)
+
+
+# uploading census info for shapefiles
+census_api_key("dddd8ba3acd20567744bf155fb2a95c97717fa56", install=TRUE)
+
+this.year = 2019
+
+vars <- load_variables(year = 2019,
+                       dataset = "acs5",
+                       cache = TRUE)
+
+# variable doesn't matter but it is required to use census data. 
+acs_2019 <- get_acs(geography = "county",
+                    variables = c(medage = "B01002_001"),
+                    year = 2019,
+                    geometry = TRUE)
+
+# joining the census data to our air pollution data by the fips/geoid.
+neur_air_hi_us_2018_by_county <- neur_air_hi_us_2018_by_county %>% 
+  left_join(acs_2019, by = c("fips" = "GEOID"))
+
+# selecting the columns we need
+neur_air_hi_us_2018_by_county <- neur_air_hi_us_2018_by_county %>% 
+  select(state, county, NAME, fips, total_neur_hazard_quotient, percentile, geometry) %>% 
+  clean_names()
+
+# writing it out to a geojson
+st_write(neur_air_hi_us_2018_by_county, "files/air_pollution/neur_air_us_2018_by_county.geojson")
+```
+
+# School District Data from GAO
+
+```{r}
+# loading in our data
+us_school_districts_gao <- read_sf("files/school_districts/gao104606figure3_region.shp") %>% 
+  clean_names()
+
+# cleaning the names of gao:
+us_school_districts_gao <- us_school_districts_gao %>% 
+  mutate(cleaned_name = str_to_title(name))
+
+# for illustration purposes... I'm going to just filter for the districts that did receive a grant. Let's see what that'll show... 
+us_school_districts_gao_granted <- us_school_districts_gao %>% 
+  filter(pa_or_rest == "Received PA or Restart Grant")
+
+# writing it out to a geojson
+st_write(us_school_districts_gao_granted, "files/school_districts/us_school_districts_gao_granted.geojson")
+```
