@@ -1,7 +1,13 @@
-# ed-post-map
- All the materials used to create a map showing grant and air pollution data in the US, underneath racial demographics data.
- Studies from the Government Accountability Office (GAO) and the University of Utah have shown that school districts that have received a grant from the government for a natural disaster are in counties or areas where high air pollution and high noise pollution exists. We wanted to create a similar map, and show the school districts that received a grant next to a map of counties that have higher rates of air pollution that can have neurological affects. 
+# EPA Data Analysis and Mapping for Ed Post
 
-For this, I reached out to the GAO to ask for a spreadsheet containing all the school districts that have received a grant. Their spreadsheet unfortunately doesn't list all school districts, as I noticed that after mapping it, there was a lot of white space. So I had to also grab all the shape files from the Department of Education's National Center for Education Statistics in order to join the two dataframes by the geoids. I got air pollution data from the Environmental Protection Agency, which had the data available by census tract. Thankfully, their data includes the county information, so I added the hazard quotient for each census tract in each county to give each county one total hazard quotient value. 
+Studies from the [Government Accountability Office (GAO)](https://www.gao.gov/assets/gao-22-104606.pdf) and the University of Utah have shown that school districts that have received a grant from the government for a natural disaster are in counties or areas where high air pollution and high noise pollution exists. I was assigned to create two similar maps - one showing the school districts that received a grant and another showing the rates of air pollution affecting the neurological system per county. 
 
-Since we are simply re-creating the maps that the GAO and University of Utah made, I mainly used 2018 data from all sources, since that was what the GAO and University of Utah used.
+## Methodology
+
+For the first map/illustration, I reached out to the GAO to ask for the data used in their analysis. I received a csv of all the districts that received grants and the ones that didn't. This only required me to create a geojson file for mapping.
+
+For the second, I used [2018 air pollution data affecting neurological health from the Environmental Protection Agency](https://www.epa.gov/AirToxScreen/2018-airtoxscreen-assessment-results), which contains neurological air pollution rates for each county. Similar to the study from the University of Utah, I calculated the percentile of the data, specifically the 75th and 90th percentiles, to see which counties had the highest air pollution rates. Counties that were in the 90th percentile included counties with major metropolitan cities such as Los Angeles, Chicago, New York City, and so on. 
+
+[The map can be seen here in this story published in Ed Post.](https://www.edpost.com/stories/what-is-environmental-activism-youth-of-color-creating-justice)
+
+**_NOTE: The map/illustration showing the school districts that received a grant from the government for a natural disaster was not used in the final pieces._**
